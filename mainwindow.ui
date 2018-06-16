@@ -211,9 +211,23 @@
         <widget class="QComboBox" name="columnSelect"/>
        </item>
        <item>
+        <widget class="QCheckBox" name="isReverse">
+         <property name="text">
+          <string>Reverse</string>
+         </property>
+        </widget>
+       </item>
+       <item>
         <widget class="QPushButton" name="button_search">
          <property name="text">
           <string>Search</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="fuzzy">
+         <property name="text">
+          <string>Fuzzy</string>
          </property>
         </widget>
        </item>
