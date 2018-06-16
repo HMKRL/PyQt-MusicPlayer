@@ -20,6 +20,8 @@ class MainWindow(QMainWindow):
     db.setDatabaseName('./db.sqlite')
     db.open()
 
+    model = None
+
     def __init__(self):
         super().__init__()
         self.ui = uic.loadUi('mainwindow.ui', self)
@@ -27,13 +29,16 @@ class MainWindow(QMainWindow):
         self.ui.pushButton.clicked.connect(self.slotTest)
         self.ui.tableView.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         # self.ui.tableView.setEditTriggers(QAbstractItemView.NoEditTriggers)
-        # self.ui.tableView.clicked.connect(lambda x: print(x.row()))
-        self.ui.tableView.entered.connect(lambda x: print(x.row()))
+        self.ui.tableView.clicked.connect(self.rowClicked)
+        self.ui.exist.clicked.connect(self.albumHasSong)
+        self.ui.notExist.clicked.connect(self.albumHasNoSong)
 
         # db buttons
         self.ui.button_search.clicked.connect(self.userSearch)
         self.ui.fuzzy.clicked.connect(self.fuzzySearch)
         self.ui.button_query.clicked.connect(self.userQuery)
+
+        self.model = QSqlTableModel(self, self.db)
 
         # set player and control icon
         self.ui.play_pause.setIcon(qta.icon('fa.play'))
@@ -65,16 +70,9 @@ class MainWindow(QMainWindow):
         tables.remove('sqlite_sequence')
         self.ui.targetSelect.addItems(tables)
 
-# Event handler
-
-    def keyPressEvent(self, e):
-        if e.key() == Qt.Key_A:
-            print('A pressed')
-
 # Slots
 
     def slotTest(self):
-        model = QSqlTableModel(self, self.db)
         # model.setTable("Artist")
         # model.setQuery(QSqlQuery("SELECT MAX(Since) from Artist;"))
         qry = QSqlQuery()
@@ -82,9 +80,7 @@ class MainWindow(QMainWindow):
         # while qry.next():
             # print(qry.value(qry.record().indexOf("Name")))
         # qry.finish()
-        model.select()
 
-        self.ui.tableView.setModel(model)
         # self.ui.tableView.show()
         # select = QFileDialog(self)
         # select.show()
@@ -97,6 +93,10 @@ class MainWindow(QMainWindow):
         record = self.db.driver().record(table)
         self.ui.columnSelect.clear()
         self.ui.columnSelect.addItems([record.fieldName(i) for i in range (record.count())])
+
+    def rowClicked(self, x):
+        row = x.row()
+        print(self.model.record(row).value(0))
 
 
 # Music playing control
@@ -124,6 +124,33 @@ class MainWindow(QMainWindow):
             pix = QPixmap()
             pix.loadFromData(pic.data)
             self.ui.albumart.setPixmap(pix.scaled(self.ui.albumart.size()))
+
+    def albumHasSong(self):
+        query = QSqlQuery('SELECT * FROM Album WHERE EXISTS(SELECT * FROM Song WHERE Song.ALBUM_ID = Album.ALBUM_ID);')
+        self.model.setQuery(query)
+        self.model.select()
+        self.ui.tableView.setModel(self.model)
+
+    def albumHasNoSong(self):
+        query = QSqlQuery('SELECT * FROM Album WHERE NOT EXISTS(SELECT * FROM Song WHERE Song.ALBUM_ID = Album.ALBUM_ID);')
+        self.model.setQuery(query)
+        self.model.select()
+        self.ui.tableView.setModel(self.model)
+
+
+# Event handler
+
+    def keyPressEvent(self, e):
+        if e.key() == Qt.Key_Delete:
+            for index in self.ui.tableView.selectedIndexes():
+                ID = self.model.record(index.row()).value(0)
+                table = self.ui.targetSelect.currentText()
+                pk = self.db.driver().record(table).fieldName(0)
+                qry = QSqlQuery(
+                        "DELETE from {0} WHERE {1} = '{2}'".format(table, pk, ID)
+                        )
+                self.fuzzySearch()
+
 
 
 # MainWindow drag & drop
@@ -170,11 +197,9 @@ class MainWindow(QMainWindow):
                         "VALUES ('{0}', (SELECT ALBUM_ID FROM Album WHERE Title = '{1}'), (SELECT ARTIST_ID FROM Artist WHERE Name = '{2}'), {3}, '{4}')".format(tag['title'][0], tag['album'][0], tag['artist'][0], int(tag.info.length), url.path())
                         )
 
-            # print(int(tag.info.length))
+
 
 # database operations
-
-# SELECT * FROM Album WHERE EXISTS(SELECT * FROM Song WHERE Song.ALBUM_ID = Album.ALBUM_ID);
 
     def userSearch(self):
         searchTarget = self.ui.targetSelect.currentText()
@@ -185,42 +210,37 @@ class MainWindow(QMainWindow):
         if self.ui.isReverse.isChecked():
             in_cmd = 'NOT IN'
 
-        model = QSqlTableModel(self, self.db)
         query = QSqlQuery("SELECT * from {0} where {1} {2} ('{3}');".format(searchTarget, searchColumn, in_cmd, '\',\''.join(searchText)))
-        model.setQuery(query)
-        model.select()
+        self.model.setQuery(query)
+        self.model.select()
 
         if query.lastError().isValid():
             self.ui.statusbar.showMessage(query.lastError().driverText() + ', ' + query.lastError().databaseText())
 
-        self.ui.tableView.setModel(model)
+        self.ui.tableView.setModel(self.model)
 
     def fuzzySearch(self):
-        model = QSqlTableModel(self, self.db)
-
         searchTarget = self.ui.targetSelect.currentText()
         searchColumn = self.ui.columnSelect.currentText()
         searchText = self.ui.searchtext.text()
 
         query = QSqlQuery("SELECT * from {0} where {1} LIKE '%{2}%';".format(searchTarget, searchColumn, searchText))
-        model.setQuery(query)
-        model.select()
+        self.model.setQuery(query)
+        self.model.select()
 
         if query.lastError().isValid():
             self.ui.statusbar.showMessage(query.lastError().driverText() + ', ' + query.lastError().databaseText())
 
-        self.ui.tableView.setModel(model)
+        self.ui.tableView.setModel(self.model)
 
     def userQuery(self):
-        model = QSqlTableModel(self, self.db)
-
         sql_cmd = self.ui.querycmd.text()
         query = QSqlQuery(sql_cmd)
-        model.setQuery(query)
-        model.select()
+        self.model.setQuery(query)
+        self.model.select()
 
         if query.lastError().isValid():
             self.ui.statusbar.showMessage(query.lastError().driverText() + ', ' + query.lastError().databaseText())
 
-        self.ui.tableView.setModel(model)
+        self.ui.tableView.setModel(self.model)
 

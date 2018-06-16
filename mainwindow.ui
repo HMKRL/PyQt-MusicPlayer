@@ -251,6 +251,26 @@
      </widget>
     </item>
     <item>
+     <widget class="QWidget" name="widget_4" native="true">
+      <layout class="QHBoxLayout" name="horizontalLayout_4">
+       <item>
+        <widget class="QPushButton" name="exist">
+         <property name="text">
+          <string>Album with song</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="notExist">
+         <property name="text">
+          <string>Album without song</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
+     </widget>
+    </item>
+    <item>
      <widget class="QTableView" name="tableView"/>
     </item>
     <item>
