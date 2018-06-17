@@ -41,6 +41,8 @@ class MainWindow(QMainWindow):
 
         self.model = QSqlTableModel(self, self.db)
 
+        self.model.dataChanged.connect(self.dataUpdated)
+
         # set player and control icon
         self.ui.play_pause.setIcon(qta.icon('fa.play'))
         self.ui.next.setIcon(qta.icon('fa.step-forward'))
@@ -72,6 +74,7 @@ class MainWindow(QMainWindow):
         tables.remove('sqlite_sequence')
         self.ui.targetSelect.addItems(tables)
 
+
 # Slots
 
     def slotTest(self):
@@ -89,7 +92,6 @@ class MainWindow(QMainWindow):
         # select.filesSelected.connect(lambda str: (
             # self.player.setMedia(QMediaContent(QUrl.fromLocalFile(str[0]))),
             # self.player.play()))
-
 
     def updateColumnSelect(self, table):
         record = self.db.driver().record(table)
@@ -109,6 +111,17 @@ class MainWindow(QMainWindow):
             qry.next()
             self.player.setMedia(QMediaContent(QUrl.fromLocalFile(qry.value(0))))
 
+    def dataUpdated(self, index):
+        table = self.ui.targetSelect.currentText()
+        column = self.model.record(index.row()).fieldName(index.column())
+        value = self.model.record(index.row()).value(index.column())
+        pk = self.model.record(index.row()).fieldName(0)
+        ID = self.model.record(index.row()).value(0)
+        qry = QSqlQuery(
+                "UPDATE {0} SET {1} = '{2}' WHERE {3} = '{4}'".format(table, column, value, pk, ID)
+                )
+        self.model.clear()
+        self.fuzzySearch()
 
 # Music playing control
 
@@ -237,7 +250,6 @@ class MainWindow(QMainWindow):
                         )
 
         self.fuzzySearch()
-
 
 
 # database operations
