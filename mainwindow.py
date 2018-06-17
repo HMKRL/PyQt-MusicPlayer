@@ -3,7 +3,7 @@ from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from PyQt5.QtSql import *
 from PyQt5.QtWidgets import *
-from PyQt5.QtMultimedia import QMediaPlayer, QMediaContent
+from PyQt5.QtMultimedia import *
 from mutagen.flac import FLAC, Picture
 
 import os
@@ -30,6 +30,7 @@ class MainWindow(QMainWindow):
         self.ui.tableView.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         # self.ui.tableView.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.ui.tableView.clicked.connect(self.rowClicked)
+
         self.ui.exist.clicked.connect(self.albumHasSong)
         self.ui.notExist.clicked.connect(self.albumHasNoSong)
 
@@ -46,6 +47,8 @@ class MainWindow(QMainWindow):
         self.ui.prev.setIcon(qta.icon('fa.step-backward'))
 
         self.ui.play_pause.clicked.connect(self.toggleMusic)
+        self.ui.next.clicked.connect(lambda: self.player.setPosition(self.player.position() + 10000))
+        self.ui.prev.clicked.connect(lambda: self.player.setPosition(self.player.position() - 10000))
 
         self.pushed.connect(self.ui.slider.setValue)
 
@@ -57,7 +60,6 @@ class MainWindow(QMainWindow):
         self.player.currentMediaChanged.connect(self.songChanged)
         self.player.stateChanged.connect(self.togglePlayPauseIcon)
 
-        # self.player.setMedia(QMediaContent(QUrl.fromLocalFile('/home/hmkrl/Music/南條愛乃 - サントロワ∴/10. 光のはじまり.flac')))
         self.slider.sliderMoved.connect(self.player.setPosition)
 
         # enable mainwindow drag and drop
@@ -93,10 +95,19 @@ class MainWindow(QMainWindow):
         record = self.db.driver().record(table)
         self.ui.columnSelect.clear()
         self.ui.columnSelect.addItems([record.fieldName(i) for i in range (record.count())])
+        self.ui.searchtext.clear()
+        self.fuzzySearch()
 
     def rowClicked(self, x):
-        row = x.row()
-        print(self.model.record(row).value(0))
+        table = self.ui.targetSelect.currentText()
+        if table == 'Song':
+            row = x.row()
+            qry = QSqlQuery(
+                    "SELECT filepath FROM Song WHERE SONG_ID = {0};".format(self.model.record(row).value(0))
+                    )
+
+            qry.next()
+            self.player.setMedia(QMediaContent(QUrl.fromLocalFile(qry.value(0))))
 
 
 # Music playing control
@@ -116,14 +127,18 @@ class MainWindow(QMainWindow):
         else:
             self.ui.play_pause.setIcon(qta.icon('fa.play'))
 
-    def songChanged(self):
-        filepath = self.player.media().canonicalUrl().path()
-        player.play()
-        mutag = FLAC(filepath)
-        for pic in mutag.pictures:
+    def songChanged(self, media):
+        # filepath = self.player.media().canonicalUrl().path()
+        filepath = media.canonicalUrl().path()
+
+        tag = FLAC(filepath)
+        for pic in tag.pictures:
             pix = QPixmap()
             pix.loadFromData(pic.data)
-            self.ui.albumart.setPixmap(pix.scaled(self.ui.albumart.size()))
+            self.ui.albumart.setPixmap(pix.scaled(100, 100, Qt.KeepAspectRatio))
+            self.ui.statusbar.showMessage('Now playing: ' + tag['title'][0] + ' by ' + tag['artist'][0])
+
+        self.player.play()
 
     def albumHasSong(self):
         query = QSqlQuery('SELECT * FROM Album WHERE EXISTS(SELECT * FROM Song WHERE Song.ALBUM_ID = Album.ALBUM_ID);')
@@ -149,8 +164,32 @@ class MainWindow(QMainWindow):
                 qry = QSqlQuery(
                         "DELETE from {0} WHERE {1} = '{2}'".format(table, pk, ID)
                         )
+                if table == 'Album':
+                    qry = QSqlQuery(
+                            "DELETE from Song WHERE ALBUM_ID = '{0}'".format(ID)
+                            )
+
                 self.fuzzySearch()
 
+    def mouseReleaseEvent(self, e):
+        x = e.pos().x() - self.ui.albumart.pos().x()
+        y = e.pos().y() - self.ui.albumart.pos().y()
+
+        if (x > 0 and x < 100) and (y > 0 and y < 100):
+            w = QMainWindow(self)
+            w.setGeometry(0, 0, 512, 512)
+            w.setWindowTitle('Albumart')
+            l = QLabel(w)
+            l.setGeometry(0, 0, 512, 512)
+
+            filepath = self.player.media().canonicalUrl().path()
+            tag = FLAC(filepath)
+            for pic in tag.pictures:
+                pix = QPixmap()
+                pix.loadFromData(pic.data)
+                l.setPixmap(pix.scaled(l.width(), l.height(), Qt.KeepAspectRatio));
+
+            w.show()
 
 
 # MainWindow drag & drop
@@ -196,6 +235,8 @@ class MainWindow(QMainWindow):
                         "INSERT INTO Song (Title, ALBUM_ID, ARTIST_ID, Length, filepath) "
                         "VALUES ('{0}', (SELECT ALBUM_ID FROM Album WHERE Title = '{1}'), (SELECT ARTIST_ID FROM Artist WHERE Name = '{2}'), {3}, '{4}')".format(tag['title'][0], tag['album'][0], tag['artist'][0], int(tag.info.length), url.path())
                         )
+
+        self.fuzzySearch()
 
 
 
