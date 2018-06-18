@@ -26,7 +26,6 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.ui = uic.loadUi('mainwindow.ui', self)
 
-        self.ui.pushButton.clicked.connect(self.slotTest)
         self.ui.tableView.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         # self.ui.tableView.setEditTriggers(QAbstractItemView.NoEditTriggers)
         self.ui.tableView.clicked.connect(self.rowClicked)
@@ -76,22 +75,6 @@ class MainWindow(QMainWindow):
 
 
 # Slots
-
-    def slotTest(self):
-        # model.setTable("Artist")
-        # model.setQuery(QSqlQuery("SELECT MAX(Since) from Artist;"))
-        qry = QSqlQuery()
-        qry.exec("SELECT * from Artist where Name LIKE '%%';")
-        # while qry.next():
-            # print(qry.value(qry.record().indexOf("Name")))
-        # qry.finish()
-
-        # self.ui.tableView.show()
-        # select = QFileDialog(self)
-        # select.show()
-        # select.filesSelected.connect(lambda str: (
-            # self.player.setMedia(QMediaContent(QUrl.fromLocalFile(str[0]))),
-            # self.player.play()))
 
     def updateColumnSelect(self, table):
         record = self.db.driver().record(table)
@@ -309,7 +292,6 @@ class MainWindow(QMainWindow):
             while query.next():
                 big_album += 1
 
-            print(song_cnt, total_time, min_time, max_time, big_album)
             self.ui.statusbar.showMessage('{0} songs, total {1}sec, min {2}sec, max {3}sec, {4} large albums'.format(song_cnt, total_time, min_time, max_time, big_album))
 
 
