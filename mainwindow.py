@@ -286,6 +286,33 @@ class MainWindow(QMainWindow):
 
         self.ui.tableView.setModel(self.model)
 
+        if searchTarget == 'Song':
+            query = QSqlQuery("SELECT COUNT(SONG_ID) from Song where {1} LIKE '%{2}%';".format(searchTarget, searchColumn, searchText))
+            query.next()
+            song_cnt = query.value(0)
+
+            query = QSqlQuery("SELECT SUM(length) from Song where {1} LIKE '%{2}%';".format(searchTarget, searchColumn, searchText))
+            query.next()
+            total_time = query.value(0)
+
+            query = QSqlQuery("SELECT MIN(length) from Song where {1} LIKE '%{2}%';".format(searchTarget, searchColumn, searchText))
+            query.next()
+            min_time = query.value(0)
+
+            query = QSqlQuery("SELECT MAX(length) from Song where {1} LIKE '%{2}%';".format(searchTarget, searchColumn, searchText))
+            query.next()
+            max_time = query.value(0)
+
+            query = QSqlQuery("SELECT COUNT(SONG_ID) from Song where {1} LIKE '%{2}%' GROUP BY ALBUM_ID HAVING COUNT(SONG_ID) > 5;".format(searchTarget, searchColumn, searchText))
+
+            big_album = 0;
+            while query.next():
+                big_album += 1
+
+            print(song_cnt, total_time, min_time, max_time, big_album)
+            self.ui.statusbar.showMessage('{0} songs, total {1}sec, min {2}sec, max {3}sec, {4} large albums'.format(song_cnt, total_time, min_time, max_time, big_album))
+
+
     def userQuery(self):
         sql_cmd = self.ui.querycmd.text()
         query = QSqlQuery(sql_cmd)
